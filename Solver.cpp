@@ -11,7 +11,6 @@ Solver::Solver(KernelNeighborhood &neighborhood, double m, double a, double n):n
   double *o = new double[(*nb).nfeat * (*nb).ninst];
   matrixToDouble(o, O);
   deviceInitO(o, O.size());
-  
   computeTargetTerm();
   double *tt = new double[(*nb).ninst * (*nb).ninst];
   matrixToDouble(tt, t_target);
@@ -35,13 +34,14 @@ void Solver::computeTargetTerm(){
   double s = 1.0;
   t_target = MatrixXd::Zero((*nb).ninst, (*nb).ninst);
   for(int i = 0; i < (*nb).ninst; i++)
-	for(int j = 0; j < (*nb).k; j++){
-	  if ((*nb).sd->inst[i].ino == TP)
+	for(int j = 0; j < (*nb).nn[(*nb).sd->inst[i].label]; j++){
+	  if ((*nb).sd->inst[i].label == TP)
 	    s = nu;
 	  else
 	    s = 1.0;
-	  t_target.col(i) += s * (*nb).getE(i, (*nb).getTarget(i, j));
-	  t_target.col((*nb).getTarget(i, j)) -= s * (*nb).getE(i, (*nb).getTarget(i, j));
+	  int neighbor = (*nb).getTargetByOffset(i, j);
+	  t_target.col(i) += s * (*nb).getE(i, (*nb).getTargetByOffset(i, j));
+	  t_target.col((*nb).getTargetByOffset(i, j)) -= s * (*nb).getE(i, (*nb).getTargetByOffset(i, j));
 	}
 }
 

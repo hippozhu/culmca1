@@ -4,7 +4,7 @@
 #include "KernelNeighborhood.h"
 
 
-KernelNeighborhood::KernelNeighborhood(SVMData& train, SVMData& test, int nc, int kk):Neighborhood(train, test, nc, kk), gamma(1.0/nfeat){
+KernelNeighborhood::KernelNeighborhood(SVMData& train, SVMData& test, int nc, int kk, int k1):Neighborhood(train, test, nc, kk, k1), gamma(1.0/nfeat){
   generateKernelMatrix();
   generateTestKernelMatrix();
   initE();
@@ -73,10 +73,10 @@ double KernelNeighborhood::distance(int i, int j, MatrixXd& omege){
 
 void KernelNeighborhood::initTriplets(){
   for(int i = 0; i < ninst; i++)
-	for(int j = 0; j < k; j++)
+	for(int j = 0; j < nn[sd->inst[i].label]; j++)
 	  for(int l = 0; l < ninst; l++)
 	    if(inOpposingClass(i, l)){
-		  VTriplet vt = {i, getTarget(i, j), l, .0, false};
+		  VTriplet vt = {i, getTargetByOffset(i, j), l, .0, false};
 		  triplets.push_back(vt);
 		}
   cout << "triplets #: " << triplets.size() << endl;

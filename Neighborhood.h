@@ -2,11 +2,14 @@
 /* ------------------------- Neighborhood class -------------------------------*/
 class Neighborhood{
   public:
-    Neighborhood(SVMData&, SVMData&, int nc, int kk);
+    Neighborhood(SVMData&, SVMData&, int, int, int);
 	~Neighborhood();
     SVMData *sd, *sd_test;
 	int nclass;
 	int k;
+	int nn[4];
+	int *target_offset;
+	int target_size;
 	
     int nfeat;
     int ninst;
@@ -34,6 +37,7 @@ class Neighborhood{
 	void findTarget();
 	double violatedDist(int, int, int, MatrixXd &);
 	int getTarget(int, int);
+	int getTargetByOffset(int, int);
 	double averageClosestDist();
 	MatrixXd outerProduct(int, int);
 	double knn(MatrixXd&, int, bool);

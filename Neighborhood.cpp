@@ -2,14 +2,17 @@
 #include "SVMData.h"
 #include "Neighborhood.h"
 
-Neighborhood::Neighborhood(SVMData& train, SVMData& test, int nc, int kk):sd(&train), sd_test(&test), nclass(nc), k(kk), nfeat(train.nfeat), ninst(train.ninst), ninst_test(test.ninst)
+Neighborhood::Neighborhood(SVMData& train, SVMData& test, int nc, int kk, int k1):sd(&train), sd_test(&test), nclass(nc), k(kk), nfeat(train.nfeat), ninst(train.ninst), ninst_test(test.ninst)
 {
-  target = (int*)malloc(sizeof(int)*ninst*k);
+  nn[0] = k;
+  nn[1] = k1;
+  nn[2] = 0;
+  nn[3] = 0;
   findTarget();
-  deviceInitTarget(target, train.ninst, &k, &nclass);
+  deviceInitTarget(target, train.ninst, target_size, &k, &nclass, nn, target_offset);
   deviceInitLabelTrain(train.inst, train.ninst);
   deviceInitLabelTest(test.inst, test.ninst);
-  deviceInitInstList(train.inst, train.typecount, train.ninst, nclass, k);
+  deviceInitInstList(train.inst, train.typecount, train.ninst, nclass, k, target_size);
 }
 
 Neighborhood::~Neighborhood(){
@@ -75,10 +78,26 @@ void Neighborhood::calcDistMatrix(MatrixXd& distMatrix, MatrixXd& M){
 
 
 void Neighborhood::findTarget(){
+  target_offset = (int*)malloc(sizeof(int)*ninst);
+  int typecount[4];
+  for(int i = 0; i < 4; ++ i)
+    typecount[i] = 0;
+  for(int i = 0; i < ninst; ++ i)
+    ++ typecount[sd->inst[i].label];
+  target_size = 0;
+  for(int i = 0; i < 4; ++ i)
+    target_size += typecount[i] * nn[i];
+  target = (int*)malloc(sizeof(int)*target_size);
+  
   double *edistMatrix = (double*)malloc(sizeof(double)*ninst*ninst);
   calcEdistMatrix(edistMatrix);
   acd = .0;
+  int base = 0;
   for(int i = 0; i < ninst; ++ i){
+  
+    target_offset[i] = base;
+	base += nn[sd->inst[i].label];
+	
     vector<DistPair> dp;
 	for(int j = 0; j < ninst; ++ j){
 	  if(i==j)
@@ -91,8 +110,8 @@ void Neighborhood::findTarget(){
 	
 	sort(dp.begin(), dp.end());
 	
-	for(int j = 0; j < k; ++ j)
-	  target[i * k + j] = dp[j].ino;
+	for(int j = 0; j < nn[sd->inst[i].label]; ++ j)
+	  target[target_offset[i] + j] = dp[j].ino;
 	  
 	acd += dp[0].dist;
   }
@@ -101,6 +120,10 @@ void Neighborhood::findTarget(){
 
 int Neighborhood::getTarget(int i, int t){
   return target[i * k + t];
+}
+
+int Neighborhood::getTargetByOffset(int ino, int kk){
+  return target[target_offset[ino] + kk];
 }
 
 bool Neighborhood::inSameClass(int i, int j){
