@@ -284,6 +284,14 @@ __global__ void updateUpdateTerm(double alpha){
   }
 }
 
+__global__ void copyO(){
+  int tid = threadIdx.x;
+  int bid = blockIdx.x;
+  int size = gridDim.x * blockDim.x;
+  for (int m = blockDim.x * bid + tid; m < nfeat * ntrain; m += size)
+    O[idx_o][m] = O[1 - idx_o][m];
+}
+
 __global__ void zeroO(){
   int tid = threadIdx.x;
   int bid = blockIdx.x;
@@ -676,6 +684,7 @@ void deviceInitKnn(int n_train, int n_test, int kk){
   cudaMemcpyToSymbol(nnegibor, &kk, sizeof(int), 0, cudaMemcpyHostToDevice);
 }
 
+
 void kernelTest(int d, int n, int n_test, int kk, double *result, double mu, double alpha, double nu, int k1){
   double dd[20];
   int h_hits[4];
@@ -732,7 +741,7 @@ void kernelTest(int d, int n, int n_test, int kk, double *result, double mu, dou
 	min_iter = iter;
 	//reduced = true;
     alpha *= 1.1;
-	
+
   knnUpdateDist<<<84, BSIZE>>>();
   knnFindNeighbor<<<n_test, BSIZE>>>();
   knnMatching<<<84, BSIZE>>>();  
@@ -762,19 +771,12 @@ void kernelTest(int d, int n, int n_test, int kk, double *result, double mu, dou
   }
   else{
 	cout << ", increased by " << dd[9] - f_old;
-	//reduced = false;
     alpha /= 10;
-  //int idx = iter % 2;
-  //if (reduced)
-    idx = 1 - idx;
-    cudaMemcpyToSymbol(idx_o, &idx, sizeof(int), 0, cudaMemcpyHostToDevice);
+    copyO<<<84, BSIZE>>>();
     update2<<<84, 256>>>();
-  
-  // update t_triplet by calculating vdist of every (i, j, l)
-  zeroT_triplet<<<84, 256>>>();  
-  update3_2<<<84, 256>>>(); 
-  //update3_3<<<84, 256>>>();  
-  
+    // update t_triplet by calculating vdist of every (i, j, l)
+    zeroT_triplet<<<84, 256>>>();
+    update3_2<<<84, 256>>>();
   }
   
   cout << endl << "min_f = " << f_old << " at iter " << min_iter << ", alpha = " << alpha << endl;
@@ -799,15 +801,3 @@ void kernelTest(int d, int n, int n_test, int kk, double *result, double mu, dou
     break;
   }
 }
-  /*
-  cudaEvent_t start_event1, stop_event1;
-  cudaEventCreate(&start_event1);
-  cudaEventCreate(&stop_event1);
-  cudaEventRecord(start_event1, 0);
-  cudaThreadSynchronize();
-  
-  float time_kernel1;
-  cudaEventRecord(stop_event1, 0);
-  cudaEventElapsedTime(&time_kernel1, start_event1, stop_event1);
-  cout << "time1 " << time_kernel1/1000 << endl;
-  */
